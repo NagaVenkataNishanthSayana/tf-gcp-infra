@@ -1,0 +1,29 @@
+name: Terraform Validation
+
+on:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  validate_terraform:
+    if: github.event.pull_request.head.repo.fork
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v1
+        with:
+          terraform_version: 0.15.0
+
+      - name: Terraform Format
+        run: terraform fmt -check
+
+      - name: Terraform Init
+        run: terraform init
+
+      - name: Terraform Validate
+        run: terraform validate
