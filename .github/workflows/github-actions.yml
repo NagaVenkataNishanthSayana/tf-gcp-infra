@@ -6,7 +6,6 @@ on:
 
 jobs:
   Springboot-Setup:
-    if: github.event.pull_request.head.repo.fork
     runs-on: ubuntu-latest
     steps:
       - name: test
