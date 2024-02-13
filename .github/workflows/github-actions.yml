@@ -3,11 +3,27 @@ on:
   pull_request:
     branches:
       - 'main'
-      - 'test'
 
 jobs:
-  Springboot-Setup:
+  Validate-Terraform:
+    if: github.event.pull_request.head.repo.fork
     runs-on: ubuntu-latest
     steps:
-      - name: test
-        run: echo "hello world"
+      - name: Checkout repository
+        run: actions/checkout@v2
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v1
+        with:
+          terraform_version: 0.15.0
+
+
+      - name: Terraform Format
+        run: terraform fmt -check
+
+
+      - name: Terraform Init
+        run: terraform init
+
+      - name: Terraform Validate
+        run: terraform validate
