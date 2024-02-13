@@ -3,7 +3,7 @@ name: Terraform Validation
 on:
   pull_request:
     branches:
-      - main
+      - 'main'
 
 jobs:
   validate_terraform:
