@@ -4,9 +4,10 @@ provider "google" {
 }
 
 resource "google_compute_network" "cloud_vpc" {
-  name                    = var.network_name
-  auto_create_subnetworks = false
-  routing_mode            = "REGIONAL"
+  name                            = var.network_name
+  auto_create_subnetworks         = false
+  routing_mode                    = "REGIONAL"
+  delete_default_routes_on_create = true
 }
 
 resource "google_compute_subnetwork" "webapp_subnet" {
