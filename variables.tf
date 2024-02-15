@@ -12,6 +12,20 @@ variable "network_name" {
   description = "Name of the Google Compute Engine network"
   default     = "cloudvpc"
 }
+variable "webapp_subnet_name" {
+  description = "Name of the subnet for webapp"
+  default     = "webapp"
+}
+
+variable "db_subnet_name" {
+  description = "Name of the subnet for db"
+  default     = "db"
+}
+
+variable "webapp_rout_name" {
+  description = "Name of the internet gateway route for webapp"
+  default     = "webapp-route"
+}
 
 variable "webapp_subnet_cidr" {
   description = "CIDR range for the webapp subnet"
