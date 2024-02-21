@@ -10,7 +10,7 @@ variable "region" {
 
 variable "network_name" {
   description = "Name of the Google Compute Engine network"
-  default     = "cloudvpc"
+  default     = "csye6225-network"
 }
 variable "webapp_subnet_name" {
   description = "Name of the subnet for webapp"
@@ -79,7 +79,7 @@ variable "zone" {
 }
 
 variable "image" {
-  default = "projects/csye6225-dev-414521/global/images/centos-1708393438"
+  default = "projects/csye6225-dev-414521/global/images/centos-1708538201"
 }
 
 variable "disk_type" {
@@ -91,11 +91,11 @@ variable "disk_size" {
 }
 
 variable "allowed_ports" {
-  default = [8080] # Add more ports as needed
+  default = ["8080"] # Add more ports as needed
 }
 
 variable "denied_ports" {
-  default = [22] # Add more ports as needed
+  default = ["22"] # Add more ports as needed
 }
 
 variable "source_ranges" {
@@ -103,7 +103,7 @@ variable "source_ranges" {
 }
 
 variable "instance_tags" {
-  default = ["web-application"]
+  default = ["webapp"]
 }
 
 variable "allowed_firewall_name" {
@@ -112,4 +112,16 @@ variable "allowed_firewall_name" {
 
 variable "denied_firewall_name" {
   default = "deny-ssh-from-internet"
+}
+
+variable "stack_type" {
+  default = "IPV4_ONLY"
+}
+
+variable "network_tier" {
+  default = "PREMIUM"
+}
+
+variable "queue_count" {
+  default = 0
 }
