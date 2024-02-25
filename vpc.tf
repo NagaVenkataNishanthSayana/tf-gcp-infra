@@ -59,26 +59,26 @@ resource "google_compute_instance" "webapp_instance" {
 
 # Add firewall rule
 resource "google_compute_firewall" "webapp_firewall" {
-  name        = "webapp-firewall"
+  name        = var.allowed_firewall_name
   network     = google_compute_network.cloud_vpc.name
-  target_tags = ["webapp"]
+  target_tags = var.instance_tags
 
   allow {
-    protocol = "tcp"
-    ports    = ["8080"]
+    protocol = var.protocol
+    ports    = var.allowed_ports
   }
 
   source_ranges = var.source_ranges
 }
 
 resource "google_compute_firewall" "ssh_block_firewall" {
-  name        = "webapp-ssh-firewall"
+  name        = var.denied_firewall_name
   network     = google_compute_network.cloud_vpc.name
-  target_tags = ["webapp"]
+  target_tags = var.instance_tags
 
   deny {
-    protocol = "tcp"
-    ports    = ["22"]
+    protocol = var.protocol
+    ports    = var.denied_ports
   }
 
   source_ranges = var.source_ranges
