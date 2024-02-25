@@ -33,15 +33,15 @@ resource "google_compute_route" "webapp_route" {
 
 # Create Compute Engine Instance
 resource "google_compute_instance" "webapp_instance" {
-  name         = "centos-instance"
-  machine_type = "e2-micro"
-  zone         = "us-east1-b"
+  name         = var.instance_name
+  machine_type = var.machine_type
+  zone         = var.zone
   tags         = var.instance_tags
   boot_disk {
     initialize_params {
-      image = "projects/csye6225-dev-414521/global/images/centos-1708538201"
-      size  = 100
-      type  = "pd-balanced"
+      image = var.image
+      size  = var.disk_size
+      type  = var.disk_type
     }
   }
 
@@ -50,7 +50,7 @@ resource "google_compute_instance" "webapp_instance" {
       network_tier = var.network_tier
     }
 
-    queue_count = 0
+    queue_count = var.queue_count
     stack_type  = var.stack_type
     network     = google_compute_network.cloud_vpc.self_link
     subnetwork  = google_compute_subnetwork.webapp_subnet.self_link
