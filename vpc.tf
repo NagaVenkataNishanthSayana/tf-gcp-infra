@@ -37,6 +37,7 @@ resource "google_compute_instance" "webapp_instance" {
   machine_type = var.machine_type
   zone         = var.zone
   tags         = var.instance_tags
+  depends_on   = [google_sql_database_instance.cloudsql_instance]
   boot_disk {
     initialize_params {
       image = var.image
