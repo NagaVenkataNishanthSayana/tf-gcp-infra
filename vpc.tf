@@ -3,7 +3,7 @@ provider "google" {
   region  = var.region
 }
 
-resource "google_compute_network" "cloud_vpc" {
+resource "google_compute_network" "network" {
   name                            = var.network_name
   auto_create_subnetworks         = false
   routing_mode                    = var.network_routing_mode
@@ -12,21 +12,21 @@ resource "google_compute_network" "cloud_vpc" {
 
 resource "google_compute_subnetwork" "webapp_subnet" {
   name          = var.webapp_subnet_name
-  network       = google_compute_network.cloud_vpc.self_link
+  network       = google_compute_network.network.self_link
   ip_cidr_range = var.webapp_subnet_cidr
   region        = var.region
 }
 
 resource "google_compute_subnetwork" "db_subnet" {
   name          = var.db_subnet_name
-  network       = google_compute_network.cloud_vpc.self_link
+  network       = google_compute_network.network.self_link
   ip_cidr_range = var.db_subnet_cidr
   region        = var.region
 }
 
 resource "google_compute_route" "webapp_route" {
   name             = var.webapp_rout_name
-  network          = google_compute_network.cloud_vpc.self_link
+  network          = google_compute_network.network.self_link
   dest_range       = var.webapp_route_dest_range
   next_hop_gateway = var.next_hop_gateway
 }
@@ -52,15 +52,27 @@ resource "google_compute_instance" "webapp_instance" {
 
     queue_count = var.queue_count
     stack_type  = var.stack_type
-    network     = google_compute_network.cloud_vpc.self_link
+    network     = google_compute_network.network.self_link
     subnetwork  = google_compute_subnetwork.webapp_subnet.self_link
+  }
+  metadata = {
+    startup-script = <<-EOT
+        #!/bin/bash
+        set -e
+        if [ ! -f /opt/application.properties ]; then
+          echo "spring.datasource.url=jdbc:postgresql://${google_sql_database_instance.cloudsql_instance.ip_address.0.ip_address}:5432/webapp" >> /opt/application.properties
+          echo "spring.datasource.username=${google_sql_user.db_user.name}" >> /opt/application.properties
+          echo "spring.datasource.password=${google_sql_user.db_user.password}" >> /opt/application.properties
+          echo "spring.jpa.hibernate.ddl-auto=update" >> /opt/application.properties
+          echo "spring.jpa.show-sql=true" >> /opt/application.properties
+        fi
+      EOT
   }
 }
 
-# Add firewall rule
 resource "google_compute_firewall" "webapp_firewall" {
   name        = var.allowed_firewall_name
-  network     = google_compute_network.cloud_vpc.name
+  network     = google_compute_network.network.name
   target_tags = var.instance_tags
 
   allow {
@@ -73,7 +85,7 @@ resource "google_compute_firewall" "webapp_firewall" {
 
 resource "google_compute_firewall" "ssh_block_firewall" {
   name        = var.denied_firewall_name
-  network     = google_compute_network.cloud_vpc.name
+  network     = google_compute_network.network.name
   target_tags = var.instance_tags
 
   deny {
@@ -83,3 +95,99 @@ resource "google_compute_firewall" "ssh_block_firewall" {
 
   source_ranges = var.source_ranges
 }
+
+resource "google_compute_global_address" "private_ip_address" {
+  name          = var.private_ip_address_name
+  purpose       = var.private_ip_address_purpose
+  address_type  = var.private_ip_address_type
+  prefix_length = var.private_ip_address_prefix_length
+  address       = var.private_ip_address
+  network       = google_compute_network.network.id
+}
+
+resource "google_service_networking_connection" "private_connection" {
+  network                 = google_compute_network.network.id
+  service                 = var.networking_connection_service
+  reserved_peering_ranges = [google_compute_global_address.private_ip_address.name]
+
+}
+
+resource "random_string" "db_name_suffix" {
+  length  = var.db_name_suffix_length
+  special = var.db_name_suffix_special
+  upper   = var.db_name_suffix_upper
+}
+
+resource "google_sql_database_instance" "cloudsql_instance" {
+  name                = "cloudsql-instance-${random_string.db_name_suffix.result}"
+  region              = var.region
+  deletion_protection = var.deletion_protection_flag
+  database_version    = var.database_version
+  depends_on          = [google_service_networking_connection.private_connection]
+
+  settings {
+    availability_type = "REGIONAL"
+    tier              = var.database_tier
+    disk_type         = var.database_disk_type
+    disk_size         = var.database_disk_size
+    edition           = var.database_edition
+    user_labels = {
+      "env" = var.database_environment
+    }
+    ip_configuration {
+      private_network = google_compute_network.network.self_link
+      ipv4_enabled    = var.ipv4_flag_db
+    }
+  }
+}
+
+resource "google_sql_database" "database" {
+  name     = var.database_name
+  instance = google_sql_database_instance.cloudsql_instance.name
+}
+
+resource "random_password" "password" {
+  length           = var.password_length
+  special          = var.password_special
+  override_special = var.password_override_special
+}
+
+resource "random_string" "username" {
+  length           = var.username_length
+  special          = var.username_special
+  override_special = var.username_override_special
+}
+
+resource "google_sql_user" "db_user" {
+  name     = random_string.username.result
+  instance = google_sql_database_instance.cloudsql_instance.name
+  password = random_password.password.result
+}
+
+##Private Service Connect
+#resource "google_compute_address" "ps_connection_ip" {
+#  provider = google-beta
+#  project      = google_compute_network.network.project
+#  name         = "psc-compute-address-cloudsql-instance"
+#  address_type = "INTERNAL"
+#  region = var.region
+#  purpose      = "PRIVATE_SERVICE_CONNECT"
+#  subnetwork   = google_compute_subnetwork.webapp_subnet.name
+#  network      = google_compute_network.network.id
+#
+#  address      = "10.1.0.2"
+#}
+#
+#data "google_sql_database_instance" "cloudsql_instance_data" {
+#  name = resource.google_sql_database_instance.cloudsql_instance.name
+#}
+#
+#resource "google_compute_forwarding_rule" "forwarding_rule_psc" {
+#  provider     = google-beta
+#  project               = google_compute_network.network.project
+#  name                  = "psconnect-forwarding-rule"
+#  target                = data.google_sql_database_instance.cloudsql_instance_data.psc_service_attachment_link
+#  network               = google_compute_network.network.id
+#  ip_address            = google_compute_address.ps_connection_ip.self_link
+#  subnetwork=google_compute_subnetwork.webapp_subnet.self_link
+#}

@@ -79,7 +79,7 @@ variable "zone" {
 }
 
 variable "image" {
-  default = "projects/csye6225-dev-414521/global/images/centos-1708538201"
+  default = "projects/csye6225-dev-414521/global/images/centos-1708893228"
 }
 
 variable "disk_type" {
@@ -124,4 +124,127 @@ variable "network_tier" {
 
 variable "queue_count" {
   default = 0
+}
+
+variable "database_tier" {
+  description = "The tier of the Cloud SQL database instance"
+  type        = string
+  default     = "db-f1-micro"
+}
+
+variable "database_disk_type" {
+  description = "The type of disk for the Cloud SQL database instance"
+  type        = string
+  default     = "pd-ssd"
+}
+
+variable "database_disk_size" {
+  description = "The size of the disk for the Cloud SQL database instance"
+  type        = number
+  default     = 100
+}
+
+variable "database_version" {
+  description = "The db version for the Cloud SQL database instance"
+  type        = string
+  default     = "POSTGRES_15"
+}
+
+variable "database_edition" {
+  description = "The db edition for the Cloud SQL database instance"
+  type        = string
+  default     = "ENTERPRISE"
+}
+
+variable "database_environment" {
+  description = "The db environment for the Cloud SQL database instance"
+  type        = string
+  default     = "dev"
+}
+
+variable "ipv4_flag_db" {
+  default = false
+}
+
+variable "deletion_protection_flag" {
+  default = false
+}
+
+variable "database_name" {
+  type    = string
+  default = "webapp"
+}
+
+variable "private_ip_address_name" {
+  description = "The name of the global address"
+  default     = "private-ip-address"
+}
+
+variable "private_ip_address_purpose" {
+  description = "The purpose of the address"
+  default     = "VPC_PEERING"
+}
+
+variable "private_ip_address_type" {
+  description = "The type of address"
+  default     = "INTERNAL"
+}
+
+variable "private_ip_address_prefix_length" {
+  description = "The prefix length for the IP address"
+  default     = 24
+}
+
+variable "private_ip_address" {
+  description = "The specific IP address"
+  default     = "10.0.1.0"
+}
+
+variable "networking_connection_service" {
+  default = "servicenetworking.googleapis.com"
+}
+
+variable "password_length" {
+  description = "The length of the random password"
+  default     = 8
+}
+
+variable "password_special" {
+  description = "Include special characters in the random password"
+  default     = true
+}
+
+variable "password_override_special" {
+  description = "Override the default special characters for the random password"
+  default     = "!#$%&*()-_=+[]{}<>:?"
+}
+
+variable "username_length" {
+  description = "The length of the random username"
+  default     = 8
+}
+
+variable "username_special" {
+  description = "Include special characters in the random username"
+  default     = true
+}
+
+variable "username_override_special" {
+  description = "Override the default special characters for the random username"
+  default     = "/@£$"
+}
+
+variable "db_name_suffix_length" {
+  description = "The length of the random database name suffix"
+  default     = 3
+}
+
+variable "db_name_suffix_special" {
+  description = "Include special characters in the random database name suffix"
+  default     = false
+}
+
+variable "db_name_suffix_upper" {
+  description = "Include uppercase letters in the random database name suffix"
+  default     = false
 }
