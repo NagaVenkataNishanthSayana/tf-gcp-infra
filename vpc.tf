@@ -62,7 +62,7 @@ resource "google_compute_instance" "webapp_instance" {
         set -e
         if [ ! -f /opt/application.properties ]; then
           echo "spring.datasource.url=jdbc:postgresql://${google_sql_database_instance.cloudsql_instance.ip_address.0.ip_address}:5432/webapp" >> /opt/application.properties
-          echo "spring.datasource.username=postgres" >> /opt/application.properties
+          echo "spring.datasource.username=webapp" >> /opt/application.properties
           echo "spring.datasource.password=${google_sql_user.db_user.password}" >> /opt/application.properties
           echo "spring.jpa.hibernate.ddl-auto=update" >> /opt/application.properties
           echo "spring.jpa.show-sql=true" >> /opt/application.properties
@@ -76,7 +76,7 @@ resource "google_compute_instance" "webapp_instance" {
   }
 }
 
-resource "google_dns_record_set" "example" {
+resource "google_dns_record_set" "DNS_Record" {
   name         = var.dns_record_name
   type         = var.dns_record_type
   ttl          = var.dns_record_ttl
@@ -179,11 +179,11 @@ resource "google_sql_user" "db_user" {
 }
 
 resource "google_service_account" "service_account" {
-  account_id   = "logging-service-account"
-  display_name = "Logging Service Account"
+  account_id   = var.logging_service_account_name
+  display_name = var.logging_service_account_name
 }
 
-resource "google_project_iam_binding" "example_logging_admin_binding" {
+resource "google_project_iam_binding" "logging_admin_binding" {
   project = var.project
   role    = var.logging_admin_role
 
@@ -192,7 +192,7 @@ resource "google_project_iam_binding" "example_logging_admin_binding" {
   ]
 }
 
-resource "google_project_iam_binding" "example_monitoring_metric_writer_binding" {
+resource "google_project_iam_binding" "monitoring_metric_writer_binding" {
   project = var.project
   role    = var.metric_writer_role
 

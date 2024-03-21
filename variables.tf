@@ -79,7 +79,7 @@ variable "zone" {
 }
 
 variable "image" {
-  default = "projects/csye6225-dev-414521/global/images/centos-1710978029"
+  default = "projects/csye6225-dev-414521/global/images/centos-1710981727"
 }
 
 variable "disk_type" {
@@ -294,11 +294,16 @@ variable "deletion_policy" {
 variable "db_user_name" {
   description = "The name of the SQL user."
   type        = string
-  default     = "postgres"
+  default     = "webapp"
 }
 
 variable "availability_type" {
   description = "The availability type for the Cloud SQL instance."
   type        = string
   default     = "REGIONAL"
+}
+
+variable "logging_service_account_name" {
+  type    = string
+  default = "logging-service-account"
 }
