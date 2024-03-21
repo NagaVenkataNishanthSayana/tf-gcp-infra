@@ -1,6 +1,6 @@
 variable "project" {
   description = "GCP project name"
-  default     = "csye6225-dev-414521"
+  default     = "cloud-networking-project"
 }
 
 variable "region" {
@@ -79,7 +79,7 @@ variable "zone" {
 }
 
 variable "image" {
-  default = "projects/csye6225-dev-414521/global/images/centos-1708893228"
+  default = "projects/csye6225-dev-414521/global/images/centos-1710978029"
 }
 
 variable "disk_type" {
@@ -247,4 +247,58 @@ variable "db_name_suffix_special" {
 variable "db_name_suffix_upper" {
   description = "Include uppercase letters in the random database name suffix"
   default     = false
+}
+
+variable "dns_record_name" {
+  description = "The name of the DNS record."
+  type        = string
+  default     = "cloudnish.me."
+}
+
+variable "dns_record_type" {
+  description = "The type of DNS record (e.g., A, CNAME, etc.)."
+  type        = string
+  default     = "A"
+}
+
+variable "dns_record_ttl" {
+  description = "The TTL (Time To Live) value for the DNS record."
+  type        = number
+  default     = 300
+}
+
+variable "dns_managed_zone" {
+  description = "The managed zone where the DNS record is hosted."
+  type        = string
+  default     = "cloudnish"
+}
+
+variable "logging_admin_role" {
+  description = "The role for logging admin."
+  type        = string
+  default     = "roles/logging.admin"
+}
+
+variable "metric_writer_role" {
+  description = "The role for monitoring metric writer."
+  type        = string
+  default     = "roles/monitoring.metricWriter"
+}
+
+variable "deletion_policy" {
+  description = "The deletion policy for the networking connection."
+  type        = string
+  default     = "ABANDON"
+}
+
+variable "db_user_name" {
+  description = "The name of the SQL user."
+  type        = string
+  default     = "postgres"
+}
+
+variable "availability_type" {
+  description = "The availability type for the Cloud SQL instance."
+  type        = string
+  default     = "REGIONAL"
 }

@@ -37,7 +37,7 @@ resource "google_compute_instance" "webapp_instance" {
   machine_type = var.machine_type
   zone         = var.zone
   tags         = var.instance_tags
-  depends_on   = [google_sql_database_instance.cloudsql_instance]
+  depends_on   = [google_sql_database_instance.cloudsql_instance, google_service_account.service_account]
   boot_disk {
     initialize_params {
       image = var.image
@@ -62,13 +62,26 @@ resource "google_compute_instance" "webapp_instance" {
         set -e
         if [ ! -f /opt/application.properties ]; then
           echo "spring.datasource.url=jdbc:postgresql://${google_sql_database_instance.cloudsql_instance.ip_address.0.ip_address}:5432/webapp" >> /opt/application.properties
-          echo "spring.datasource.username=${google_sql_user.db_user.name}" >> /opt/application.properties
+          echo "spring.datasource.username=postgres" >> /opt/application.properties
           echo "spring.datasource.password=${google_sql_user.db_user.password}" >> /opt/application.properties
           echo "spring.jpa.hibernate.ddl-auto=update" >> /opt/application.properties
           echo "spring.jpa.show-sql=true" >> /opt/application.properties
         fi
       EOT
   }
+  service_account {
+    # Google recommends custom service accounts that have cloud-platform scope and permissions granted via IAM Roles.
+    email  = google_service_account.service_account.email
+    scopes = ["cloud-platform"]
+  }
+}
+
+resource "google_dns_record_set" "example" {
+  name         = var.dns_record_name
+  type         = var.dns_record_type
+  ttl          = var.dns_record_ttl
+  managed_zone = var.dns_managed_zone
+  rrdatas      = [google_compute_instance.webapp_instance.network_interface[0].access_config[0].nat_ip]
 }
 
 resource "google_compute_firewall" "webapp_firewall" {
@@ -110,7 +123,7 @@ resource "google_service_networking_connection" "private_connection" {
   network                 = google_compute_network.network.id
   service                 = var.networking_connection_service
   reserved_peering_ranges = [google_compute_global_address.private_ip_address.name]
-
+  deletion_policy         = var.deletion_policy
 }
 
 resource "random_string" "db_name_suffix" {
@@ -127,7 +140,7 @@ resource "google_sql_database_instance" "cloudsql_instance" {
   depends_on          = [google_service_networking_connection.private_connection]
 
   settings {
-    availability_type = "REGIONAL"
+    availability_type = var.availability_type
     tier              = var.database_tier
     disk_type         = var.database_disk_type
     disk_size         = var.database_disk_size
@@ -160,35 +173,30 @@ resource "random_string" "username" {
 }
 
 resource "google_sql_user" "db_user" {
-  name     = random_string.username.result
+  name     = var.db_user_name
   instance = google_sql_database_instance.cloudsql_instance.name
   password = random_password.password.result
 }
 
-##Private Service Connect
-#resource "google_compute_address" "ps_connection_ip" {
-#  provider = google-beta
-#  project      = google_compute_network.network.project
-#  name         = "psc-compute-address-cloudsql-instance"
-#  address_type = "INTERNAL"
-#  region = var.region
-#  purpose      = "PRIVATE_SERVICE_CONNECT"
-#  subnetwork   = google_compute_subnetwork.webapp_subnet.name
-#  network      = google_compute_network.network.id
-#
-#  address      = "10.1.0.2"
-#}
-#
-#data "google_sql_database_instance" "cloudsql_instance_data" {
-#  name = resource.google_sql_database_instance.cloudsql_instance.name
-#}
-#
-#resource "google_compute_forwarding_rule" "forwarding_rule_psc" {
-#  provider     = google-beta
-#  project               = google_compute_network.network.project
-#  name                  = "psconnect-forwarding-rule"
-#  target                = data.google_sql_database_instance.cloudsql_instance_data.psc_service_attachment_link
-#  network               = google_compute_network.network.id
-#  ip_address            = google_compute_address.ps_connection_ip.self_link
-#  subnetwork=google_compute_subnetwork.webapp_subnet.self_link
-#}
+resource "google_service_account" "service_account" {
+  account_id   = "logging-service-account"
+  display_name = "Logging Service Account"
+}
+
+resource "google_project_iam_binding" "example_logging_admin_binding" {
+  project = var.project
+  role    = var.logging_admin_role
+
+  members = [
+    "serviceAccount:${google_service_account.service_account.email}"
+  ]
+}
+
+resource "google_project_iam_binding" "example_monitoring_metric_writer_binding" {
+  project = var.project
+  role    = var.metric_writer_role
+
+  members = [
+    "serviceAccount:${google_service_account.service_account.email}"
+  ]
+}
