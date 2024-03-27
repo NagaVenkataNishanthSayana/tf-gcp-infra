@@ -451,3 +451,8 @@ variable "topic_message_retention_duration" {
   type    = string
   default = "604800s"
 }
+
+variable "topic_name" {
+  type    = string
+  default = "function-topic"
+}

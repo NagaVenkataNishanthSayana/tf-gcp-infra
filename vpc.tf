@@ -209,8 +209,7 @@ resource "google_project_iam_binding" "monitoring_metric_writer_binding" {
 }
 
 resource "google_pubsub_topic" "cloud_trigger_topic" {
-  name = "functions2-topic"
-
+  name                       = var.topic_name
   message_retention_duration = var.topic_message_retention_duration
 }
 
