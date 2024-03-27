@@ -447,3 +447,7 @@ variable "object_source_path" {
   default     = "../serverless/function-source.zip"
 }
 
+variable "topic_message_retention_duration" {
+  type    = string
+  default = "604800s"
+}
