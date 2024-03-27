@@ -262,7 +262,7 @@ resource "google_cloudfunctions2_function" "function" {
   name        = var.function_name
   location    = var.region
   description = var.function_description
-  depends_on  = [google_vpc_access_connector.connector]
+  depends_on  = [google_vpc_access_connector.connector, google_sql_database_instance.cloudsql_instance]
 
   build_config {
     runtime     = var.function_runtime
