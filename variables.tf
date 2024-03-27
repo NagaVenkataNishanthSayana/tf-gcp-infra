@@ -79,7 +79,7 @@ variable "zone" {
 }
 
 variable "image" {
-  default = "projects/csye6225-dev-414521/global/images/centos-1710981727"
+  default = "projects/csye6225-dev-414521/global/images/centos-1711505594"
 }
 
 variable "disk_type" {
@@ -211,7 +211,7 @@ variable "password_length" {
 
 variable "password_special" {
   description = "Include special characters in the random password"
-  default     = true
+  default     = false
 }
 
 variable "password_override_special" {
@@ -307,3 +307,143 @@ variable "logging_service_account_name" {
   type    = string
   default = "logging-service-account"
 }
+
+variable "pubsub_publisher_binding_role" {
+  type    = string
+  default = "roles/pubsub.publisher"
+}
+
+variable "cloud_function_account_name" {
+  type    = string
+  default = "cloud-function-account"
+}
+
+variable "cloud_function_account_display_name" {
+  type    = string
+  default = "Cloud Function Service Account"
+}
+
+variable "pubsub_subscriber_role" {
+  description = "Pub/Sub Subscriber role"
+  default     = "roles/pubsub.subscriber"
+}
+
+variable "object_viewer_role" {
+  description = "Storage Object Viewer role"
+  default     = "roles/storage.objectViewer"
+}
+
+variable "cloud_functions_developer_role" {
+  description = "Cloud Functions Developer role"
+  default     = "roles/cloudfunctions.developer"
+}
+
+variable "storage_object_admin_role" {
+  description = "Storage Object Admin role"
+  default     = "roles/storage.objectAdmin"
+}
+
+variable "function_name" {
+  description = "Name of the Cloud Function"
+  default     = "gcf-function"
+}
+
+variable "function_description" {
+  description = "Description of the Cloud Function"
+  default     = "email delivery function"
+}
+
+variable "function_runtime" {
+  description = "Runtime environment for the Cloud Function"
+  default     = "java17"
+}
+
+variable "function_entry_point" {
+  description = "Entry point class or method for the Cloud Function"
+  default     = "gcfv2pubsub.PubSubFunction"
+}
+
+variable "function_max_instance_count" {
+  description = "Maximum number of instances for the Cloud Function"
+  default     = 3
+}
+
+variable "function_min_instance_count" {
+  description = "Minimum number of instances for the Cloud Function"
+  default     = 1
+}
+
+variable "function_available_memory" {
+  description = "Available memory for each instance of the Cloud Function"
+  default     = "256Mi"
+}
+
+variable "function_timeout_seconds" {
+  description = "Timeout duration (in seconds) for the Cloud Function"
+  default     = 60
+}
+
+variable "function_max_instance_request_concurrency" {
+  description = "Maximum number of concurrent requests per instance for the Cloud Function"
+  default     = 1
+}
+
+variable "function_available_cpu" {
+  description = "Available CPU for each instance of the Cloud Function"
+  default     = "167m"
+}
+
+variable "function_api_key" {
+  description = "API key for the Cloud Function"
+  default     = "8681e2ca40b80860ade66544d58da93e-309b0ef4-7dab6103"
+}
+
+variable "function_vpc_connector_egress_settings" {
+  description = "Egress settings for the VPC connector"
+  default     = "PRIVATE_RANGES_ONLY"
+}
+
+variable "function_ingress_settings" {
+  description = "Ingress settings for the Cloud Function"
+  default     = "ALLOW_ALL"
+}
+
+variable "function_all_traffic_on_latest_revision" {
+  description = "Whether to route all traffic to the latest revision of the Cloud Function"
+  default     = true
+}
+
+variable "function_event_type" {
+  description = "Event type for the Cloud Function trigger"
+  default     = "google.cloud.pubsub.topic.v1.messagePublished"
+}
+
+variable "function_retry_policy" {
+  description = "Retry policy for the Cloud Function trigger"
+  default     = "RETRY_POLICY_DO_NOT_RETRY"
+}
+
+variable "connector_name" {
+  description = "Name of the VPC Access Connector"
+  default     = "vpc-connector-serverless"
+}
+
+variable "connector_ip_cidr_range" {
+  description = "IP CIDR range for the VPC Access Connector"
+  default     = "10.8.0.0/28"
+}
+
+variable "connector_network" {
+  description = "Name of the VPC network for the VPC Access Connector"
+}
+
+variable "object_name" {
+  description = "Name of the storage bucket object"
+  default     = "gcf-function/function-source.zip"
+}
+
+variable "object_source_path" {
+  description = "Local path to the zipped function source code"
+  default     = "../serverless/function-source.zip"
+}
+

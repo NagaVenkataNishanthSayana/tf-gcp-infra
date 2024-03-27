@@ -37,7 +37,7 @@ resource "google_compute_instance" "webapp_instance" {
   machine_type = var.machine_type
   zone         = var.zone
   tags         = var.instance_tags
-  depends_on   = [google_sql_database_instance.cloudsql_instance, google_service_account.service_account]
+  depends_on   = [google_sql_database_instance.cloudsql_instance, google_service_account.service_account_instance]
   boot_disk {
     initialize_params {
       image = var.image
@@ -66,12 +66,14 @@ resource "google_compute_instance" "webapp_instance" {
           echo "spring.datasource.password=${google_sql_user.db_user.password}" >> /opt/application.properties
           echo "spring.jpa.hibernate.ddl-auto=update" >> /opt/application.properties
           echo "spring.jpa.show-sql=true" >> /opt/application.properties
+          echo "projectID=${var.project}" >> /opt/application.properties
+          echo "topicName=${google_pubsub_topic.cloud_trigger_topic.name}" >> /opt/application.properties
         fi
       EOT
   }
   service_account {
     # Google recommends custom service accounts that have cloud-platform scope and permissions granted via IAM Roles.
-    email  = google_service_account.service_account.email
+    email  = google_service_account.service_account_instance.email
     scopes = ["cloud-platform"]
   }
 }
@@ -161,9 +163,8 @@ resource "google_sql_database" "database" {
 }
 
 resource "random_password" "password" {
-  length           = var.password_length
-  special          = var.password_special
-  override_special = var.password_override_special
+  length  = var.password_length
+  special = var.password_special
 }
 
 resource "random_string" "username" {
@@ -178,7 +179,7 @@ resource "google_sql_user" "db_user" {
   password = random_password.password.result
 }
 
-resource "google_service_account" "service_account" {
+resource "google_service_account" "service_account_instance" {
   account_id   = var.logging_service_account_name
   display_name = var.logging_service_account_name
 }
@@ -188,8 +189,14 @@ resource "google_project_iam_binding" "logging_admin_binding" {
   role    = var.logging_admin_role
 
   members = [
-    "serviceAccount:${google_service_account.service_account.email}"
+    "serviceAccount:${google_service_account.service_account_instance.email}"
   ]
+}
+
+resource "google_project_iam_member" "pubsub_publisher_binding" {
+  project = var.project
+  role    = var.pubsub_publisher_binding_role
+  member  = "serviceAccount:${google_service_account.service_account_instance.email}"
 }
 
 resource "google_project_iam_binding" "monitoring_metric_writer_binding" {
@@ -197,6 +204,110 @@ resource "google_project_iam_binding" "monitoring_metric_writer_binding" {
   role    = var.metric_writer_role
 
   members = [
-    "serviceAccount:${google_service_account.service_account.email}"
+    "serviceAccount:${google_service_account.service_account_instance.email}"
   ]
 }
+
+resource "google_pubsub_topic" "cloud_trigger_topic" {
+  name = "functions2-topic"
+
+  message_retention_duration = "86600s"
+}
+
+resource "google_storage_bucket" "bucket" {
+  name                        = "${var.project}-gcf-source" # Every bucket name must be globally unique
+  location                    = var.region
+  uniform_bucket_level_access = true
+}
+
+resource "google_storage_bucket_object" "object" {
+  name   = var.object_name
+  bucket = google_storage_bucket.bucket.name
+  source = var.object_source_path
+}
+
+resource "google_service_account" "cloud_function_account" {
+  account_id   = var.cloud_function_account_name
+  display_name = var.cloud_function_account_display_name
+}
+
+resource "google_project_iam_binding" "function_service_account_binding" {
+  project = var.project
+  role    = var.pubsub_subscriber_role
+  members = [
+    "serviceAccount:${google_service_account.cloud_function_account.email}",
+  ]
+}
+
+resource "google_project_iam_member" "object_viewer_binding" {
+  project = var.project
+  role    = var.object_viewer_role
+  member  = "serviceAccount:${google_service_account.cloud_function_account.email}"
+}
+
+resource "google_project_iam_member" "cloud_functions_developer_binding" {
+  project = var.project
+  role    = var.cloud_functions_developer_role
+  member  = "serviceAccount:${google_service_account.cloud_function_account.email}"
+}
+
+resource "google_project_iam_member" "storage_object_admin_binding" {
+  project = var.project
+  role    = var.storage_object_admin_role
+  member  = "serviceAccount:${google_service_account.cloud_function_account.email}"
+}
+
+
+resource "google_cloudfunctions2_function" "function" {
+  name        = var.function_name
+  location    = var.region
+  description = var.function_description
+  depends_on  = [google_vpc_access_connector.connector]
+
+  build_config {
+    runtime     = var.function_runtime
+    entry_point = var.function_entry_point
+    source {
+      storage_source {
+        bucket = google_storage_bucket.bucket.name
+        object = google_storage_bucket_object.object.name
+      }
+    }
+  }
+
+  service_config {
+    max_instance_count               = var.function_max_instance_count
+    min_instance_count               = var.function_min_instance_count
+    available_memory                 = var.function_available_memory
+    timeout_seconds                  = var.function_timeout_seconds
+    max_instance_request_concurrency = var.function_max_instance_request_concurrency
+    available_cpu                    = var.function_available_cpu
+    environment_variables = {
+      DB_USERNAME   = var.db_user_name
+      DB_PASSWORD   = google_sql_user.db_user.password
+      API_KEY       = var.function_api_key
+      DB_IP_Address = google_sql_database_instance.cloudsql_instance.ip_address.0.ip_address
+    }
+    vpc_connector                  = google_vpc_access_connector.connector.name
+    vpc_connector_egress_settings  = var.function_vpc_connector_egress_settings
+    ingress_settings               = var.function_ingress_settings
+    all_traffic_on_latest_revision = var.function_all_traffic_on_latest_revision
+    service_account_email          = google_service_account.cloud_function_account.email
+  }
+
+  event_trigger {
+    trigger_region = var.region
+    event_type     = var.function_event_type
+    pubsub_topic   = google_pubsub_topic.cloud_trigger_topic.id
+    retry_policy   = var.function_retry_policy
+  }
+}
+
+resource "google_vpc_access_connector" "connector" {
+  name          = var.connector_name
+  ip_cidr_range = var.connector_ip_cidr_range
+  network       = google_compute_network.network.name
+  region        = var.region
+}
+
+
