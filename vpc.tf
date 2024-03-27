@@ -211,7 +211,7 @@ resource "google_project_iam_binding" "monitoring_metric_writer_binding" {
 resource "google_pubsub_topic" "cloud_trigger_topic" {
   name = "functions2-topic"
 
-  message_retention_duration = "86600s"
+  message_retention_duration = "604800s"
 }
 
 resource "google_storage_bucket" "bucket" {
