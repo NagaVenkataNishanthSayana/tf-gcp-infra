@@ -32,72 +32,172 @@ resource "google_compute_route" "webapp_route" {
 }
 
 # Create Compute Engine Instance
-resource "google_compute_instance" "webapp_instance" {
-  name         = var.instance_name
+resource "google_compute_instance_template" "webapp_instance_template" {
+  name         = "centos-image-instance-template"
   machine_type = var.machine_type
-  zone         = var.zone
   tags         = var.instance_tags
   depends_on   = [google_sql_database_instance.cloudsql_instance, google_service_account.service_account_instance]
-  boot_disk {
-    initialize_params {
-      image = var.image
-      size  = var.disk_size
-      type  = var.disk_type
-    }
+  region=var.region
+
+  disk {
+    source_image = var.image
+    type         = var.disk_type
+    disk_size_gb = var.disk_size
   }
 
-  network_interface {
-    access_config {
-      network_tier = var.network_tier
-    }
-
-    queue_count = var.queue_count
-    stack_type  = var.stack_type
-    network     = google_compute_network.network.self_link
-    subnetwork  = google_compute_subnetwork.webapp_subnet.self_link
-  }
   metadata = {
     startup-script = <<-EOT
-        #!/bin/bash
-        set -e
-        if [ ! -f /opt/application.properties ]; then
-          echo "spring.datasource.url=jdbc:postgresql://${google_sql_database_instance.cloudsql_instance.ip_address.0.ip_address}:5432/webapp" >> /opt/application.properties
-          echo "spring.datasource.username=webapp" >> /opt/application.properties
-          echo "spring.datasource.password=${google_sql_user.db_user.password}" >> /opt/application.properties
-          echo "spring.jpa.hibernate.ddl-auto=update" >> /opt/application.properties
-          echo "spring.jpa.show-sql=true" >> /opt/application.properties
-          echo "projectID=${var.project}" >> /opt/application.properties
-          echo "topicName=${google_pubsub_topic.cloud_trigger_topic.name}" >> /opt/application.properties
-        fi
-      EOT
+          #!/bin/bash
+          set -e
+          if [ ! -f /opt/application.properties ]; then
+            echo "spring.datasource.url=jdbc:postgresql://${google_sql_database_instance.cloudsql_instance.ip_address.0.ip_address}:5432/webapp" >> /opt/application.properties
+            echo "spring.datasource.username=webapp" >> /opt/application.properties
+            echo "spring.datasource.password=${google_sql_user.db_user.password}" >> /opt/application.properties
+            echo "spring.jpa.hibernate.ddl-auto=update" >> /opt/application.properties
+            echo "spring.jpa.show-sql=true" >> /opt/application.properties
+            echo "projectID=${var.project}" >> /opt/application.properties
+            echo "topicName=${google_pubsub_topic.cloud_trigger_topic.name}" >> /opt/application.properties
+          fi
+        EOT
   }
+
+    network_interface {
+      network     = google_compute_network.network.self_link
+      subnetwork  = google_compute_subnetwork.webapp_subnet.self_link
+      access_config {
+        network_tier = var.network_tier
+      }
+    }
+
   service_account {
-    # Google recommends custom service accounts that have cloud-platform scope and permissions granted via IAM Roles.
     email  = google_service_account.service_account_instance.email
     scopes = ["cloud-platform"]
   }
 }
-
-resource "google_dns_record_set" "DNS_Record" {
-  name         = var.dns_record_name
-  type         = var.dns_record_type
-  ttl          = var.dns_record_ttl
-  managed_zone = var.dns_managed_zone
-  rrdatas      = [google_compute_instance.webapp_instance.network_interface[0].access_config[0].nat_ip]
+# Create Compute Health Check
+resource "google_compute_health_check" "webapp_health_check" {
+  name                = "webapp-health-check"
+  check_interval_sec  = 10
+  timeout_sec         = 10
+  healthy_threshold   = 2
+  unhealthy_threshold = 3
+  http_health_check {
+    port         = "8080"
+    request_path = "/healthz"
+    # response     = "200 OK"
+  }
+  log_config {
+    enable = true
+  }
 }
 
-resource "google_compute_firewall" "webapp_firewall" {
-  name        = var.allowed_firewall_name
-  network     = google_compute_network.network.name
-  target_tags = var.instance_tags
+# Create Compute Autoscaler
+resource "google_compute_region_autoscaler" "webapp_autoscaler" {
+  name   = "webapp-autoscaler"
+  region = var.region
+  target = google_compute_region_instance_group_manager.webapp_instance_group_manager.id
+  autoscaling_policy {
+    min_replicas = 1
+    max_replicas = 3
+    cpu_utilization {
+      target = 0.10
+    }
+  }
+}
 
+# Create Compute Instance Group Manager
+resource "google_compute_region_instance_group_manager" "webapp_instance_group_manager" {
+  name               = "webapp-instance-group-manager"
+  base_instance_name = "webapp-instance"
+  region             = var.region
+  target_size        = 1
+  version {
+    instance_template = google_compute_instance_template.webapp_instance_template.self_link
+  }
+  named_port {
+    name = "http"
+    port = "8080"
+  }
+  auto_healing_policies {
+    health_check      = google_compute_health_check.webapp_health_check.id
+    initial_delay_sec = 300
+  }
+}
+
+resource "google_compute_firewall" "lb_firewall" {
+  name        = "allow-lb-traffic"
+  network     = google_compute_network.network.name
+  target_tags = ["allow-health-check",var.instance_tags]
   allow {
-    protocol = var.protocol
-    ports    = var.allowed_ports
+    protocol = "tcp"
+    ports    = ["80", "443","8080"]
   }
 
-  source_ranges = var.source_ranges
+  source_ranges = ["130.211.0.0/22", "35.191.0.0/16"] # Google's LB IP ranges
 }
+
+#resource "google_dns_record_set" "DNS_Record" {
+#  name         = var.dns_record_name
+#  type         = var.dns_record_type
+#  ttl          = var.dns_record_ttl
+#  managed_zone = var.dns_managed_zone
+##  rrdatas      = [google_compute_instance.webapp_instance.network_interface[0].access_config[0].nat_ip]
+#  rrdatas = [module.gce-lb-http.external_ip]
+#}
+
+#resource "google_compute_firewall" "webapp_firewall" {
+#  name        = var.allowed_firewall_name
+#  network     = google_compute_network.network.name
+#  target_tags = var.instance_tags
+#
+#  allow {
+#    protocol = var.protocol
+#    ports    = var.allowed_ports
+#  }
+#
+#  source_ranges = var.source_ranges
+#}
+
+#module "gce-lb-http" {
+#  source            = "GoogleCloudPlatform/lb-http/google"
+#  version           = "~> 9.0"
+#
+#  project           = var.project
+#  name              = "group-http-lb"
+#  managed_ssl_certificate_domains=["cloudnish.me"]
+#  ssl=true
+#  backends = {
+#    default = {
+#      port                            = var.service_port
+#      protocol                        = "HTTP"
+#      port_name                       = "http"
+#      timeout_sec                     = 10
+#      enable_cdn                      = false
+#
+#
+#      health_check = {
+#        request_path        = "/healthz"
+#        port                = var.service_port
+#      }
+#
+#      log_config = {
+#        enable = true
+#        sample_rate = 1.0
+#      }
+#
+#      groups = [
+#        {
+#          # Each node pool instance group should be added to the backend.
+#          group = google_compute_region_instance_group_manager.appserver.self_link
+#        },
+#      ]
+#
+#      iap_config = {
+#        enable               = false
+#      }
+#    }
+#  }
+#}
 
 resource "google_compute_firewall" "ssh_block_firewall" {
   name        = var.denied_firewall_name

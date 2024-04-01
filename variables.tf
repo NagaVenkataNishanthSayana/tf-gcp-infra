@@ -1,6 +1,6 @@
 variable "project" {
   description = "GCP project name"
-  default     = "cloud-networking-project"
+  default     = "csye6225-dev-414521"
 }
 
 variable "region" {
@@ -455,4 +455,8 @@ variable "topic_message_retention_duration" {
 variable "topic_name" {
   type    = string
   default = "function-topic"
+}
+
+variable "service_port" {
+  default = 8080
 }
