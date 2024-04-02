@@ -71,7 +71,7 @@ variable "protocol" {
 }
 
 variable "machine_type" {
-  default = "n2-standard-2"
+  default = "e2-medium"
 }
 
 variable "zone" {
@@ -431,10 +431,6 @@ variable "connector_name" {
 variable "connector_ip_cidr_range" {
   description = "IP CIDR range for the VPC Access Connector"
   default     = "10.8.0.0/28"
-}
-
-variable "connector_network" {
-  description = "Name of the VPC network for the VPC Access Connector"
 }
 
 variable "object_name" {

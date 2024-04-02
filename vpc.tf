@@ -100,7 +100,7 @@ resource "google_compute_region_autoscaler" "webapp_autoscaler" {
   autoscaling_policy {
     min_replicas    = 1
     max_replicas    = 4
-    cooldown_period = 120
+    cooldown_period = 180
     cpu_utilization {
       target = 0.10
     }
