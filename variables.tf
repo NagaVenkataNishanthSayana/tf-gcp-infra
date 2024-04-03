@@ -79,7 +79,7 @@ variable "zone" {
 }
 
 variable "image" {
-  default = "projects/csye6225-dev-414521/global/images/centos-1711505594"
+  default = "projects/csye6225-dev-414521/global/images/centos-1712171612"
 }
 
 variable "disk_type" {
@@ -514,13 +514,13 @@ variable "autoscaler_name" {
 variable "min_replicas" {
   description = "The minimum number of replicas that the autoscaler can scale down to."
   type        = number
-  default     = 1
+  default     = 3
 }
 
 variable "max_replicas" {
   description = "The maximum number of replicas that the autoscaler can scale up to."
   type        = number
-  default     = 4
+  default     = 9
 }
 
 variable "cooldown_period" {
