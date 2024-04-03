@@ -43,7 +43,6 @@ resource "google_compute_region_instance_template" "webapp_instance_template" {
     source_image = var.image
     type         = var.disk_type
     disk_size_gb = var.disk_size
-    auto_delete  = false
   }
 
   metadata = {
@@ -66,6 +65,9 @@ resource "google_compute_region_instance_template" "webapp_instance_template" {
   network_interface {
     network    = google_compute_network.network.self_link
     subnetwork = google_compute_subnetwork.webapp_subnet.self_link
+    access_config {
+      network_tier = var.network_tier
+    }
   }
 
   service_account {
@@ -73,66 +75,66 @@ resource "google_compute_region_instance_template" "webapp_instance_template" {
     scopes = ["cloud-platform"]
   }
 }
-# Create Compute Health Check
+
 resource "google_compute_health_check" "webapp_health_check" {
-  name                = "webapp-health-check"
-  check_interval_sec  = 15
-  timeout_sec         = 15
-  healthy_threshold   = 2
-  unhealthy_threshold = 3
+  name                = var.health_check_name
+  check_interval_sec  = var.check_interval_sec
+  timeout_sec         = var.timeout_sec
+  healthy_threshold   = var.healthy_threshold
+  unhealthy_threshold = var.unhealthy_threshold
   http_health_check {
-    port         = "8080"
-    request_path = "/healthz"
+    port         = var.http_health_check_port
+    request_path = var.http_health_check_request_path
   }
   log_config {
-    enable = true
+    enable = var.log_config_enable
   }
 }
 
-# Create Compute Autoscaler
 resource "google_compute_region_autoscaler" "webapp_autoscaler" {
-  name   = "webapp-autoscaler"
+  name   = var.autoscaler_name
   region = var.region
   target = google_compute_region_instance_group_manager.webapp_instance_group_manager.id
+
   autoscaling_policy {
-    min_replicas    = 1
-    max_replicas    = 4
-    cooldown_period = 180
+    min_replicas    = var.min_replicas
+    max_replicas    = var.max_replicas
+    cooldown_period = var.cooldown_period
+
     cpu_utilization {
-      target = 0.05
+      target = var.cpu_utilization_target
     }
   }
 }
 
-# Create Compute Instance Group Manager
 resource "google_compute_region_instance_group_manager" "webapp_instance_group_manager" {
-  name                      = "webapp-instance-group-manager"
-  base_instance_name        = "webapp-instance"
+  name                      = var.instance_group_manager_name
+  base_instance_name        = var.base_instance_name
   region                    = var.region
-  distribution_policy_zones = ["us-east1-b", "us-east1-c", "us-east1-d"]
+  distribution_policy_zones = var.distribution_policy_zones
   version {
     instance_template = google_compute_region_instance_template.webapp_instance_template.id
   }
   named_port {
-    name = "http"
-    port = "8080"
+    name = var.named_port_name
+    port = var.named_port_number
   }
   auto_healing_policies {
     health_check      = google_compute_health_check.webapp_health_check.id
-    initial_delay_sec = 300
+    initial_delay_sec = var.auto_healing_delay
   }
 }
 
 resource "google_compute_firewall" "lb_firewall" {
-  name        = "allow-lb-traffic"
+  name        = var.firewall_name
   network     = google_compute_network.network.name
   target_tags = var.instance_tags
   allow {
-    protocol = "tcp"
-    ports    = ["8080"]
+    protocol = var.protocol
+    ports    = var.allowed_ports
   }
 
-  source_ranges = ["130.211.0.0/22", "35.191.0.0/16"] # Google's LB IP ranges
+  source_ranges = var.source_ranges_lb_firewall # Google's LB IP ranges
 }
 
 resource "google_dns_record_set" "DNS_Record" {
@@ -148,28 +150,28 @@ module "gce-lb-http" {
   version = "~> 9.0"
 
   project                         = var.project
-  name                            = "group-http-lb"
-  managed_ssl_certificate_domains = ["cloudnish.me"]
-  ssl                             = true
-  http_forward                    = false
-  load_balancing_scheme="EXTERNAL_MANAGED"
+  name                            = var.lb_name
+  managed_ssl_certificate_domains = var.managed_ssl_certificate_domains
+  ssl                             = var.ssl_enabled
+  http_forward                    = var.http_forward_enabled
+  load_balancing_scheme=var.load_balancing_scheme
   backends = {
     default = {
       port        = var.service_port
-      protocol    = "HTTP"
-      port_name   = "http"
-      timeout_sec = 10
-      enable_cdn  = false
+      protocol    = var.lb_backend_protocol
+      port_name   = var.named_port_name
+      timeout_sec = var.timeout_seconds
+      enable_cdn  = var.enable_cdn
 
 
       health_check = {
-        request_path = "/healthz"
+        request_path = var.health_check_request_path
         port         = var.service_port
       }
 
       log_config = {
-        enable      = true
-        sample_rate = 1.0
+        enable      = var.log_config_enabled
+        sample_rate = var.log_config_sample_rate
       }
 
       groups = [
@@ -180,7 +182,7 @@ module "gce-lb-http" {
       ]
 
       iap_config = {
-        enable = false
+        enable = var.iap_enabled
       }
     }
   }

@@ -456,3 +456,196 @@ variable "topic_name" {
 variable "service_port" {
   default = 8080
 }
+
+variable "health_check_name" {
+  description = "The name of the health check."
+  type        = string
+  default     = "webapp-health-check"
+}
+
+variable "check_interval_sec" {
+  description = "The number of seconds between each health check request."
+  type        = number
+  default     = 15
+}
+
+variable "timeout_sec" {
+  description = "How long to wait for a health check response, in seconds."
+  type        = number
+  default     = 15
+}
+
+variable "healthy_threshold" {
+  description = "The number of consecutive successful health checks before considering an instance as healthy."
+  type        = number
+  default     = 2
+}
+
+variable "unhealthy_threshold" {
+  description = "The number of consecutive failed health checks before considering an instance as unhealthy."
+  type        = number
+  default     = 3
+}
+
+variable "http_health_check_port" {
+  description = "The port number to use for the health check."
+  type        = string
+  default     = "8080"
+}
+
+variable "http_health_check_request_path" {
+  description = "The path portion of the URL that the health check requests are sent to."
+  type        = string
+  default     = "/healthz"
+}
+
+variable "log_config_enable" {
+  description = "Whether to enable logging for this health check."
+  type        = bool
+  default     = true
+}
+
+variable "autoscaler_name" {
+  description = "The name of the autoscaler."
+  type        = string
+  default     = "webapp-autoscaler"
+}
+
+variable "min_replicas" {
+  description = "The minimum number of replicas that the autoscaler can scale down to."
+  type        = number
+  default     = 1
+}
+
+variable "max_replicas" {
+  description = "The maximum number of replicas that the autoscaler can scale up to."
+  type        = number
+  default     = 4
+}
+
+variable "cooldown_period" {
+  description = "The number of seconds that the autoscaler should wait before considering further scale operations after the previous one completes."
+  type        = number
+  default     = 180
+}
+
+variable "cpu_utilization_target" {
+  description = "The target CPU utilization ratio."
+  type        = number
+  default     = 0.05
+}
+
+variable "instance_group_manager_name" {
+  description = "The name of the instance group manager."
+  type        = string
+  default     = "webapp-instance-group-manager"
+}
+
+variable "base_instance_name" {
+  description = "The base instance name for the instances in the managed instance group."
+  type        = string
+  default     = "webapp-instance"
+}
+
+variable "distribution_policy_zones" {
+  description = "A list of zones that instances in the managed instance group can be distributed across."
+  type        = list(string)
+  default = ["us-east1-b", "us-east1-c", "us-east1-d"]
+}
+
+variable "named_port_name" {
+  type        = string
+  default = "http"
+}
+
+variable "named_port_number" {
+  type        = string
+  default = "8080"
+}
+
+variable "auto_healing_delay" {
+  default = 180
+}
+
+variable "source_ranges_lb_firewall" {
+  description = "The list of source IP ranges allowed to access the resources."
+  type        = list(string)
+  default     = ["130.211.0.0/22", "35.191.0.0/16"]
+}
+
+variable "firewall_name" {
+  description = "The name of the firewall rule."
+  type        = string
+  default     = "allow-lb-traffic"
+}
+
+variable "lb_name" {
+  description = "The name of the load balancer."
+  type        = string
+  default     = "group-http-lb"
+}
+
+variable "managed_ssl_certificate_domains" {
+  description = "List of managed SSL certificate domains."
+  type        = list(string)
+  default     = ["cloudnish.me"]
+}
+
+variable "ssl_enabled" {
+  description = "Whether SSL is enabled for the load balancer."
+  type        = bool
+  default     = true
+}
+
+variable "http_forward_enabled" {
+  description = "Whether HTTP forwarding is enabled for the load balancer."
+  type        = bool
+  default     = false
+}
+
+variable "load_balancing_scheme" {
+  description = "The load balancing scheme for the load balancer."
+  type        = string
+  default     = "EXTERNAL_MANAGED"
+}
+
+variable "health_check_request_path" {
+  description = "The request path for health checks."
+  type        = string
+  default     = "/healthz"
+}
+
+variable "log_config_enabled" {
+  description = "Whether logging is enabled."
+  type        = bool
+  default     = true
+}
+
+variable "log_config_sample_rate" {
+  description = "The sample rate for logging."
+  type        = number
+  default     = 1.0
+}
+
+variable "iap_enabled" {
+  description = "Whether Identity-Aware Proxy (IAP) is enabled."
+  type        = bool
+  default     = false
+}
+
+variable "timeout_seconds" {
+  description = "The timeout for the health check in seconds."
+  type        = number
+  default     = 15
+}
+
+variable "enable_cdn" {
+  description = "Whether to enable content delivery network (CDN)."
+  type        = bool
+  default     = false
+}
+
+variable "lb_backend_protocol" {
+  type        = string
+  default     = "HTTP"
+}
