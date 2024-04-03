@@ -66,9 +66,6 @@ resource "google_compute_region_instance_template" "webapp_instance_template" {
   network_interface {
     network    = google_compute_network.network.self_link
     subnetwork = google_compute_subnetwork.webapp_subnet.self_link
-    access_config {
-      network_tier = var.network_tier
-    }
   }
 
   service_account {
@@ -102,7 +99,7 @@ resource "google_compute_region_autoscaler" "webapp_autoscaler" {
     max_replicas    = 4
     cooldown_period = 180
     cpu_utilization {
-      target = 0.10
+      target = 0.05
     }
   }
 }
@@ -132,7 +129,7 @@ resource "google_compute_firewall" "lb_firewall" {
   target_tags = var.instance_tags
   allow {
     protocol = "tcp"
-    ports    = ["443", "8080"]
+    ports    = ["8080"]
   }
 
   source_ranges = ["130.211.0.0/22", "35.191.0.0/16"] # Google's LB IP ranges
@@ -146,19 +143,6 @@ resource "google_dns_record_set" "DNS_Record" {
   rrdatas      = [module.gce-lb-http.external_ip]
 }
 
-resource "google_compute_firewall" "webapp_firewall" {
-  name        = var.allowed_firewall_name
-  network     = google_compute_network.network.name
-  target_tags = var.instance_tags
-
-  allow {
-    protocol = var.protocol
-    ports    = var.allowed_ports
-  }
-
-  source_ranges = var.source_ranges
-}
-
 module "gce-lb-http" {
   source  = "GoogleCloudPlatform/lb-http/google"
   version = "~> 9.0"
@@ -168,6 +152,7 @@ module "gce-lb-http" {
   managed_ssl_certificate_domains = ["cloudnish.me"]
   ssl                             = true
   http_forward                    = false
+  load_balancing_scheme="EXTERNAL_MANAGED"
   backends = {
     default = {
       port        = var.service_port
