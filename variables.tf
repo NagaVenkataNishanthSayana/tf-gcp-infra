@@ -520,7 +520,7 @@ variable "min_replicas" {
 variable "max_replicas" {
   description = "The maximum number of replicas that the autoscaler can scale up to."
   type        = number
-  default     = 9
+  default     = 6
 }
 
 variable "cooldown_period" {
