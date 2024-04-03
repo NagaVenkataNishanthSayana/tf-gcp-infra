@@ -154,7 +154,7 @@ module "gce-lb-http" {
   managed_ssl_certificate_domains = var.managed_ssl_certificate_domains
   ssl                             = var.ssl_enabled
   http_forward                    = var.http_forward_enabled
-  load_balancing_scheme           =var.load_balancing_scheme
+  load_balancing_scheme           = var.load_balancing_scheme
   backends = {
     default = {
       port        = var.service_port

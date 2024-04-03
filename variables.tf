@@ -550,16 +550,16 @@ variable "base_instance_name" {
 variable "distribution_policy_zones" {
   description = "A list of zones that instances in the managed instance group can be distributed across."
   type        = list(string)
-  default = ["us-east1-b", "us-east1-c", "us-east1-d"]
+  default     = ["us-east1-b", "us-east1-c", "us-east1-d"]
 }
 
 variable "named_port_name" {
-  type        = string
+  type    = string
   default = "http"
 }
 
 variable "named_port_number" {
-  type        = string
+  type    = string
   default = "8080"
 }
 
@@ -646,6 +646,6 @@ variable "enable_cdn" {
 }
 
 variable "lb_backend_protocol" {
-  type        = string
-  default     = "HTTP"
+  type    = string
+  default = "HTTP"
 }
