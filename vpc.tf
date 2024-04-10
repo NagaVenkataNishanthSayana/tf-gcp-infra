@@ -36,13 +36,16 @@ resource "google_compute_region_instance_template" "webapp_instance_template" {
   name         = "centos-image-instance-template"
   machine_type = var.machine_type
   tags         = var.instance_tags
-  depends_on   = [google_sql_database_instance.cloudsql_instance, google_service_account.service_account_instance]
+  depends_on   = [google_sql_database_instance.cloudsql_instance, google_service_account.service_account_instance,google_kms_crypto_key_iam_binding.crypto_key_binding_vm]
   region       = var.region
 
   disk {
     source_image = var.image
     type         = var.disk_type
     disk_size_gb = var.disk_size
+    disk_encryption_key {
+      kms_key_self_link = google_kms_crypto_key.vm_crypto_key.id
+    }
   }
 
   metadata = {
@@ -223,12 +226,29 @@ resource "random_string" "db_name_suffix" {
   upper   = var.db_name_suffix_upper
 }
 
+resource "google_project_service_identity" "gcp_sa_cloud_sql" {
+  provider = google-beta
+  service  = "sqladmin.googleapis.com"
+  project  = var.project
+}
+
+resource "google_kms_crypto_key_iam_binding" "crypto_key_sql" {
+  provider      = google-beta
+  crypto_key_id = google_kms_crypto_key.cloudsql_crypto_key.id
+  role          = "roles/cloudkms.cryptoKeyEncrypterDecrypter"
+
+  members = [
+    "serviceAccount:${google_project_service_identity.gcp_sa_cloud_sql.email}",
+  ]
+}
+
 resource "google_sql_database_instance" "cloudsql_instance" {
   name                = "cloudsql-instance-${random_string.db_name_suffix.result}"
   region              = var.region
   deletion_protection = var.deletion_protection_flag
   database_version    = var.database_version
-  depends_on          = [google_service_networking_connection.private_connection]
+  depends_on          = [google_service_networking_connection.private_connection, google_kms_crypto_key_iam_binding.crypto_key_sql]
+  encryption_key_name = google_kms_crypto_key.cloudsql_crypto_key.id
 
   settings {
     availability_type = var.availability_type
@@ -297,15 +317,38 @@ resource "google_project_iam_binding" "monitoring_metric_writer_binding" {
   ]
 }
 
+# Grant the binding to the specific key
+resource "google_kms_crypto_key_iam_binding" "crypto_key_binding_vm" {
+  crypto_key_id = google_kms_crypto_key.vm_crypto_key.id
+  role          = "roles/cloudkms.cryptoKeyEncrypterDecrypter"
+  members        = ["serviceAccount:${"396278943318@compute-system.iam.gserviceaccount.com"}"]
+}
+
 resource "google_pubsub_topic" "cloud_trigger_topic" {
   name                       = var.topic_name
   message_retention_duration = var.topic_message_retention_duration
+}
+
+data "google_storage_project_service_account" "gcs_account" {
+}
+
+// Crypto IAM binding to use recent key ring and key
+resource "google_kms_crypto_key_iam_binding" "crypto_key_binding_bucket" {
+
+  crypto_key_id = google_kms_crypto_key.storage_crypto_key.id
+  role          = "roles/cloudkms.cryptoKeyEncrypterDecrypter"
+
+  members = ["serviceAccount:${data.google_storage_project_service_account.gcs_account.email_address}"]
 }
 
 resource "google_storage_bucket" "bucket" {
   name                        = "${var.project}-gcf-source" # Every bucket name must be globally unique
   location                    = var.region
   uniform_bucket_level_access = true
+  depends_on                  = [google_kms_crypto_key_iam_binding.crypto_key_binding_bucket]
+  encryption {
+    default_kms_key_name = google_kms_crypto_key.storage_crypto_key.id
+  }
 }
 
 resource "google_storage_bucket_object" "object" {
@@ -398,4 +441,31 @@ resource "google_vpc_access_connector" "connector" {
   region        = var.region
 }
 
+resource "random_string" "key_random_string" {
+  length  = 3
+  special = false
+}
 
+resource "google_kms_key_ring" "my_key_ring" {
+  name     = "my-key-ring-${random_string.key_random_string.result}"
+  project = var.project
+  location = var.region
+}
+
+resource "google_kms_crypto_key" "cloudsql_crypto_key" {
+  name            = "cloudsql-cmek"
+  key_ring        = google_kms_key_ring.my_key_ring.id
+  rotation_period = "2592000s"
+}
+
+resource "google_kms_crypto_key" "storage_crypto_key" {
+  name            = "storage-cmek"
+  key_ring        = google_kms_key_ring.my_key_ring.id
+  rotation_period = "2592000s"
+}
+
+resource "google_kms_crypto_key" "vm_crypto_key" {
+  name            = "vm-cmek"
+  key_ring        = google_kms_key_ring.my_key_ring.id
+  rotation_period = "2592000s"
+}
