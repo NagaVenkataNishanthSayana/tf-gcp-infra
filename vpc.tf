@@ -473,3 +473,4 @@ resource "google_kms_crypto_key" "vm_crypto_key" {
   key_ring        = google_kms_key_ring.my_key_ring.id
   rotation_period = var.rotation_period
 }
+
