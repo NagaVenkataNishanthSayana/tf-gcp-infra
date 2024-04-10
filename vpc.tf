@@ -43,6 +43,9 @@ resource "google_compute_region_instance_template" "webapp_instance_template" {
     source_image = var.image
     type         = var.disk_type
     disk_size_gb = var.disk_size
+    disk_encryption_key {
+      kms_key_self_link = google_kms_crypto_key.vm_crypto_key.id
+    }
   }
 
   metadata = {
@@ -223,12 +226,29 @@ resource "random_string" "db_name_suffix" {
   upper   = var.db_name_suffix_upper
 }
 
+resource "google_project_service_identity" "gcp_sa_cloud_sql" {
+  provider = google-beta
+  service  = var.sql_service
+  project  = var.project
+}
+
+resource "google_kms_crypto_key_iam_binding" "crypto_key_sql" {
+  provider      = google-beta
+  crypto_key_id = google_kms_crypto_key.cloudsql_crypto_key.id
+  role          = var.crypto_key_role
+
+  members = [
+    "serviceAccount:${google_project_service_identity.gcp_sa_cloud_sql.email}",
+  ]
+}
+
 resource "google_sql_database_instance" "cloudsql_instance" {
   name                = "cloudsql-instance-${random_string.db_name_suffix.result}"
   region              = var.region
   deletion_protection = var.deletion_protection_flag
   database_version    = var.database_version
-  depends_on          = [google_service_networking_connection.private_connection]
+  depends_on          = [google_service_networking_connection.private_connection, google_kms_crypto_key_iam_binding.crypto_key_sql]
+  encryption_key_name = google_kms_crypto_key.cloudsql_crypto_key.id
 
   settings {
     availability_type = var.availability_type
@@ -297,15 +317,40 @@ resource "google_project_iam_binding" "monitoring_metric_writer_binding" {
   ]
 }
 
+resource "google_project_iam_binding" "kms_key_binding" {
+  project = var.project
+  role    = var.crypto_key_role
+  members = [
+    var.compute_engine_service_account
+  ]
+}
+
+
 resource "google_pubsub_topic" "cloud_trigger_topic" {
   name                       = var.topic_name
   message_retention_duration = var.topic_message_retention_duration
+}
+
+data "google_storage_project_service_account" "gcs_account" {
+}
+
+// Crypto IAM binding to use recent key ring and key
+resource "google_kms_crypto_key_iam_binding" "crypto_key_binding_bucket" {
+
+  crypto_key_id = google_kms_crypto_key.storage_crypto_key.id
+  role          = var.crypto_key_role
+
+  members = ["serviceAccount:${data.google_storage_project_service_account.gcs_account.email_address}"]
 }
 
 resource "google_storage_bucket" "bucket" {
   name                        = "${var.project}-gcf-source" # Every bucket name must be globally unique
   location                    = var.region
   uniform_bucket_level_access = true
+  depends_on                  = [google_kms_crypto_key_iam_binding.crypto_key_binding_bucket]
+  encryption {
+    default_kms_key_name = google_kms_crypto_key.storage_crypto_key.id
+  }
 }
 
 resource "google_storage_bucket_object" "object" {
@@ -371,10 +416,12 @@ resource "google_cloudfunctions2_function" "function" {
     max_instance_request_concurrency = var.function_max_instance_request_concurrency
     available_cpu                    = var.function_available_cpu
     environment_variables = {
-      DB_USERNAME   = var.db_user_name
-      DB_PASSWORD   = google_sql_user.db_user.password
-      API_KEY       = var.function_api_key
-      DB_IP_Address = google_sql_database_instance.cloudsql_instance.ip_address.0.ip_address
+      DB_USERNAME           = var.db_user_name
+      DB_PASSWORD           = google_sql_user.db_user.password
+      API_KEY               = var.function_api_key
+      DB_IP_Address         = google_sql_database_instance.cloudsql_instance.ip_address.0.ip_address
+      MAILGUN_ENDPOINT      = var.mailgun_endpoint
+      VERIFICATION_ENDPOINT = var.verification_endpoint
     }
     vpc_connector                  = google_vpc_access_connector.connector.name
     vpc_connector_egress_settings  = var.function_vpc_connector_egress_settings
@@ -398,4 +445,31 @@ resource "google_vpc_access_connector" "connector" {
   region        = var.region
 }
 
+resource "random_string" "key_random_string" {
+  length  = var.random_key_string_length
+  special = var.random_key_string_special
+}
 
+resource "google_kms_key_ring" "my_key_ring" {
+  name     = "my-key-ring-${random_string.key_random_string.result}"
+  project  = var.project
+  location = var.region
+}
+
+resource "google_kms_crypto_key" "cloudsql_crypto_key" {
+  name            = var.cloudsql_crypto_key_name
+  key_ring        = var.key_ring_id
+  rotation_period = var.rotation_period
+}
+
+resource "google_kms_crypto_key" "storage_crypto_key" {
+  name            = var.storage_crypto_key_name
+  key_ring        = var.key_ring_id
+  rotation_period = var.rotation_period
+}
+
+resource "google_kms_crypto_key" "vm_crypto_key" {
+  name            = var.vm_crypto_key_name
+  key_ring        = var.key_ring_id
+  rotation_period = var.rotation_period
+}
