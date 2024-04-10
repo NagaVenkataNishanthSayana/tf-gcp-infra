@@ -36,7 +36,7 @@ resource "google_compute_region_instance_template" "webapp_instance_template" {
   name         = "centos-image-instance-template"
   machine_type = var.machine_type
   tags         = var.instance_tags
-  depends_on   = [google_sql_database_instance.cloudsql_instance, google_service_account.service_account_instance,google_kms_crypto_key_iam_binding.crypto_key_binding_vm]
+  depends_on   = [google_sql_database_instance.cloudsql_instance, google_service_account.service_account_instance]
   region       = var.region
 
   disk {
@@ -228,14 +228,14 @@ resource "random_string" "db_name_suffix" {
 
 resource "google_project_service_identity" "gcp_sa_cloud_sql" {
   provider = google-beta
-  service  = "sqladmin.googleapis.com"
+  service  = var.sql_service
   project  = var.project
 }
 
 resource "google_kms_crypto_key_iam_binding" "crypto_key_sql" {
   provider      = google-beta
   crypto_key_id = google_kms_crypto_key.cloudsql_crypto_key.id
-  role          = "roles/cloudkms.cryptoKeyEncrypterDecrypter"
+  role          = var.crypto_key_role
 
   members = [
     "serviceAccount:${google_project_service_identity.gcp_sa_cloud_sql.email}",
@@ -317,12 +317,14 @@ resource "google_project_iam_binding" "monitoring_metric_writer_binding" {
   ]
 }
 
-# Grant the binding to the specific key
-resource "google_kms_crypto_key_iam_binding" "crypto_key_binding_vm" {
-  crypto_key_id = google_kms_crypto_key.vm_crypto_key.id
-  role          = "roles/cloudkms.cryptoKeyEncrypterDecrypter"
-  members        = ["serviceAccount:${"396278943318@compute-system.iam.gserviceaccount.com"}"]
+resource "google_project_iam_binding" "kms_key_binding" {
+  project = var.project
+  role    = var.crypto_key_role
+  members = [
+    var.compute_engine_service_account
+  ]
 }
+
 
 resource "google_pubsub_topic" "cloud_trigger_topic" {
   name                       = var.topic_name
@@ -336,7 +338,7 @@ data "google_storage_project_service_account" "gcs_account" {
 resource "google_kms_crypto_key_iam_binding" "crypto_key_binding_bucket" {
 
   crypto_key_id = google_kms_crypto_key.storage_crypto_key.id
-  role          = "roles/cloudkms.cryptoKeyEncrypterDecrypter"
+  role          = var.crypto_key_role
 
   members = ["serviceAccount:${data.google_storage_project_service_account.gcs_account.email_address}"]
 }
@@ -414,10 +416,12 @@ resource "google_cloudfunctions2_function" "function" {
     max_instance_request_concurrency = var.function_max_instance_request_concurrency
     available_cpu                    = var.function_available_cpu
     environment_variables = {
-      DB_USERNAME   = var.db_user_name
-      DB_PASSWORD   = google_sql_user.db_user.password
-      API_KEY       = var.function_api_key
-      DB_IP_Address = google_sql_database_instance.cloudsql_instance.ip_address.0.ip_address
+      DB_USERNAME           = var.db_user_name
+      DB_PASSWORD           = google_sql_user.db_user.password
+      API_KEY               = var.function_api_key
+      DB_IP_Address         = google_sql_database_instance.cloudsql_instance.ip_address.0.ip_address
+      MAILGUN_ENDPOINT      = var.mailgun_endpoint
+      VERIFICATION_ENDPOINT = var.verification_endpoint
     }
     vpc_connector                  = google_vpc_access_connector.connector.name
     vpc_connector_egress_settings  = var.function_vpc_connector_egress_settings
@@ -442,30 +446,30 @@ resource "google_vpc_access_connector" "connector" {
 }
 
 resource "random_string" "key_random_string" {
-  length  = 3
-  special = false
+  length  = var.random_key_string_length
+  special = var.random_key_string_special
 }
 
 resource "google_kms_key_ring" "my_key_ring" {
   name     = "my-key-ring-${random_string.key_random_string.result}"
-  project = var.project
+  project  = var.project
   location = var.region
 }
 
 resource "google_kms_crypto_key" "cloudsql_crypto_key" {
-  name            = "cloudsql-cmek"
-  key_ring        = google_kms_key_ring.my_key_ring.id
-  rotation_period = "2592000s"
+  name            = var.cloudsql_crypto_key_name
+  key_ring        = var.key_ring_id
+  rotation_period = var.rotation_period
 }
 
 resource "google_kms_crypto_key" "storage_crypto_key" {
-  name            = "storage-cmek"
-  key_ring        = google_kms_key_ring.my_key_ring.id
-  rotation_period = "2592000s"
+  name            = var.storage_crypto_key_name
+  key_ring        = var.key_ring_id
+  rotation_period = var.rotation_period
 }
 
 resource "google_kms_crypto_key" "vm_crypto_key" {
-  name            = "vm-cmek"
-  key_ring        = google_kms_key_ring.my_key_ring.id
-  rotation_period = "2592000s"
+  name            = var.vm_crypto_key_name
+  key_ring        = var.key_ring_id
+  rotation_period = var.rotation_period
 }

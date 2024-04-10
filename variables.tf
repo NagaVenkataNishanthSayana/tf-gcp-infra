@@ -649,3 +649,64 @@ variable "lb_backend_protocol" {
   type    = string
   default = "HTTP"
 }
+
+variable "mailgun_endpoint" {
+  type        = string
+  description = "The endpoint URL for the Mailgun API"
+  default     = "https://api.mailgun.net/v3/cloudnish.me/messages"
+}
+
+variable "verification_endpoint" {
+  type        = string
+  description = "The endpoint URL for user verification"
+  default     = "https://cloudnish.me/v1/user/authenticate?verificationToken="
+}
+variable "random_key_string_length" {
+  type    = number
+  default = 3
+}
+
+variable "random_key_string_special" {
+  type    = bool
+  default = false
+}
+
+variable "key_ring_id" {
+  type = string
+  # You should set the default value to the ID of your key ring or provide it when calling Terraform.
+}
+
+variable "rotation_period" {
+  type    = string
+  default = "2592000s" # 30 days in seconds
+}
+
+variable "cloudsql_crypto_key_name" {
+  type    = string
+  default = "cloudsql-cmek" # Default name for Cloud SQL crypto key
+}
+
+variable "storage_crypto_key_name" {
+  type    = string
+  default = "storage-cmek" # Default name for Cloud Storage crypto key
+}
+
+variable "vm_crypto_key_name" {
+  type    = string
+  default = "vm-cmek" # Default name for VM crypto key
+}
+
+variable "crypto_key_role" {
+  type    = string
+  default = "roles/cloudkms.cryptoKeyEncrypterDecrypter"
+}
+
+variable "compute_engine_service_account" {
+  type    = string
+  default = "serviceAccount:service-396278943318@compute-system.iam.gserviceaccount.com"
+}
+
+variable "sql_service" {
+  type    = string
+  default = "sqladmin.googleapis.com"
+}
