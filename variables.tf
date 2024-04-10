@@ -671,10 +671,6 @@ variable "random_key_string_special" {
   default = false
 }
 
-variable "key_ring_id" {
-  type = string
-  # You should set the default value to the ID of your key ring or provide it when calling Terraform.
-}
 
 variable "rotation_period" {
   type    = string

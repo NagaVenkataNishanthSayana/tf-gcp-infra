@@ -458,18 +458,19 @@ resource "google_kms_key_ring" "my_key_ring" {
 
 resource "google_kms_crypto_key" "cloudsql_crypto_key" {
   name            = var.cloudsql_crypto_key_name
-  key_ring        = var.key_ring_id
+  key_ring        = google_kms_key_ring.my_key_ring.id
   rotation_period = var.rotation_period
 }
 
 resource "google_kms_crypto_key" "storage_crypto_key" {
   name            = var.storage_crypto_key_name
-  key_ring        = var.key_ring_id
+  key_ring        = google_kms_key_ring.my_key_ring.id
   rotation_period = var.rotation_period
 }
 
 resource "google_kms_crypto_key" "vm_crypto_key" {
   name            = var.vm_crypto_key_name
-  key_ring        = var.key_ring_id
+  key_ring        = google_kms_key_ring.my_key_ring.id
   rotation_period = var.rotation_period
 }
+
